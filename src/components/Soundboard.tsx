@@ -2,6 +2,10 @@
 
 import { deleteFile, getFile, saveFile } from "@/lib/db";
 import { useEffect, useRef, useState } from "react";
+import AddEditSoundDialog from "./AddEditSoundDialog";
+import AddBankDialog from "./AddBankDialog";
+import RemoveBankDialog from "./RemoveBankDialog";
+import RemoveSoundDialog from "./RemoveSoundDialog";
 
 // Allow arbitrary categories (default categories were "sound" and "music")
 type Category = string;
@@ -47,6 +51,8 @@ export default function SoundboardPage() {
   const [categories, setCategories] = useState<Category[]>(["sound", "music"]);
   // Input state for creating new category
   const [newCategoryName, setNewCategoryName] = useState<string>("");
+  // Ref to the category select element for focus management
+  const categorySelectRef = useRef<HTMLSelectElement>(null);
 
   // Handler to add a new category and select it
   const handleAddCategory = () => {
@@ -57,6 +63,10 @@ export default function SoundboardPage() {
     }
     setFormData((p) => ({ ...p, category: name }));
     setNewCategoryName("");
+    // After adding a category, move focus to the category select to keep focus within the modal
+    setTimeout(() => {
+      categorySelectRef.current?.focus();
+    }, 0);
   };
 
   // keyboard & persistence
@@ -432,235 +442,47 @@ export default function SoundboardPage() {
           )}
         </div>
         {showForm && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: "rgba(0,0,0,0.5)",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <form onSubmit={handleFormSubmit} style={{ background: "#fff", padding: "1rem", borderRadius: "4px" }}>
-              <h2>{editIndex != null ? "Edit Sound" : "Add Sound"}</h2>
-              {formError && (
-                <div style={{ color: "red", marginBottom: "0.5rem" }} role="alert">
-                  {formError}
-                </div>
-              )}
-              <div>
-                <label>
-                  File:
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="audio/*"
-                    onChange={handleFileChange}
-                    required={!formData.fileId}
-                  />
-                </label>
-              </div>
-              {filePreviewUrl && (
-                <div style={{ marginTop: "0.5rem" }}>
-                  <audio controls src={filePreviewUrl} style={{ width: "100%" }} />
-                </div>
-              )}
-              <div>
-                <label>
-                  Name:
-                  <input
-                    type="text"
-                    value={formData.name || ""}
-                    onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-                    required
-                  />
-                </label>
-              </div>
-              <div>
-                <label>
-                  Hotkey:
-                  <input
-                    type="text"
-                    value={formData.hotkey || ""}
-                    onChange={(e) => setFormData((p) => ({ ...p, hotkey: e.target.value }))}
-                    required
-                  />
-                </label>
-              </div>
-              <div style={{ marginBottom: "0.5rem" }}>
-                <label style={{ marginRight: "0.5rem" }}>
-                  New Category:
-                  <input
-                    type="text"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    placeholder="Add new..."
-                  />
-                </label>
-                <button type="button" onClick={handleAddCategory} disabled={!newCategoryName.trim()}>
-                  Add Category
-                </button>
-              </div>
-              <div>
-                <label>
-                  Category:
-                  <select
-                    value={formData.category || ""}
-                    onChange={(e) => setFormData((p) => ({ ...p, category: e.target.value }))}
-                    required
-                  >
-                    <option value="" disabled>
-                      Select category
-                    </option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div>
-                <label>
-                  Volume: {formData.volume ?? 100}
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={formData.volume ?? 100}
-                    onChange={(e) => setFormData((p) => ({ ...p, volume: Number(e.target.value) }))}
-                  />
-                </label>
-              </div>
-              <div>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={formData.loop || false}
-                    onChange={(e) => setFormData((p) => ({ ...p, loop: e.target.checked }))}
-                  />{" "}
-                  Loop
-                </label>
-              </div>
-              <div style={{ marginTop: "1rem" }}>
-                <button type="submit">Save</button>
-                <button type="button" onClick={closeForm} style={{ marginLeft: "0.5rem" }}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
+          <AddEditSoundDialog
+            editIndex={editIndex}
+            formData={formData}
+            formError={formError}
+            filePreviewUrl={filePreviewUrl}
+            newCategoryName={newCategoryName}
+            categories={categories}
+            fileInputRef={fileInputRef}
+            categorySelectRef={categorySelectRef}
+            handleFileChange={handleFileChange}
+            handleFormSubmit={handleFormSubmit}
+            setNewCategoryName={setNewCategoryName}
+            handleAddCategory={handleAddCategory}
+            setFormData={setFormData}
+            closeForm={closeForm}
+          />
         )}
         {bankModal === "add" && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: "rgba(0,0,0,0.5)",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <form onSubmit={handleAddBankConfirm} style={{ background: "#fff", padding: "1rem", borderRadius: "4px" }}>
-              <h2>Add Sound Bank</h2>
-              <div>
-                <label>
-                  Name:
-                  <input
-                    type="text"
-                    autoFocus
-                    value={bankNameInput}
-                    onChange={(e) => setBankNameInput(e.target.value)}
-                    required
-                  />
-                </label>
-              </div>
-              <div style={{ marginTop: "1rem" }}>
-                <button type="submit">Add</button>
-                <button type="button" onClick={cancelBankModal} style={{ marginLeft: "0.5rem" }}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
+          <AddBankDialog
+            bankNameInput={bankNameInput}
+            setBankNameInput={setBankNameInput}
+            onSubmit={handleAddBankConfirm}
+            onCancel={cancelBankModal}
+          />
         )}
         {bankModal === "remove" && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: "rgba(0,0,0,0.5)",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <div style={{ background: "#fff", padding: "1rem", borderRadius: "4px" }}>
-              <h2>Remove Sound Bank</h2>
-              <p>Remove bank &quot;{banks[currentBankIndex]?.name}&quot;?</p>
-              <div style={{ marginTop: "1rem" }}>
-                <button onClick={handleRemoveBankConfirm} autoFocus>
-                  Yes
-                </button>
-                <button onClick={cancelBankModal} style={{ marginLeft: "0.5rem" }}>
-                  No
-                </button>
-              </div>
-            </div>
-          </div>
+          <RemoveBankDialog
+            bankName={banks[currentBankIndex]?.name}
+            onConfirm={handleRemoveBankConfirm}
+            onCancel={cancelBankModal}
+          />
         )}
         {soundToDelete != null && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: "rgba(0,0,0,0.5)",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
+          <RemoveSoundDialog
+            soundName={banks[currentBankIndex].sounds[soundToDelete]?.name}
+            onConfirm={() => {
+              removeSound(soundToDelete);
+              setSoundToDelete(null);
             }}
-          >
-            <div style={{ background: "#fff", padding: "1rem", borderRadius: "4px" }}>
-              <h2>Remove Sound</h2>
-              <p>Remove sound &quot;{banks[currentBankIndex].sounds[soundToDelete]?.name}&quot;?</p>
-              <div style={{ marginTop: "1rem" }}>
-                <button
-                  onClick={() => {
-                    removeSound(soundToDelete);
-                    setSoundToDelete(null);
-                  }}
-                  autoFocus
-                >
-                  Yes
-                </button>
-                <button onClick={() => setSoundToDelete(null)} style={{ marginLeft: "0.5rem" }}>
-                  No
-                </button>
-              </div>
-            </div>
-          </div>
+            onCancel={() => setSoundToDelete(null)}
+          />
         )}
       </main>
     </div>
