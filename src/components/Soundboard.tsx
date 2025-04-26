@@ -3,7 +3,8 @@
 import { deleteFile, getFile, saveFile } from "@/lib/db";
 import { useEffect, useRef, useState } from "react";
 
-type Category = "sound" | "music";
+// Allow arbitrary categories (default categories were "sound" and "music")
+type Category = string;
 
 interface Sound {
   id: string;
@@ -42,6 +43,21 @@ export default function SoundboardPage() {
   const [bankNameInput, setBankNameInput] = useState("");
   // Sound delete confirmation
   const [soundToDelete, setSoundToDelete] = useState<number | null>(null);
+  // Available categories (default + custom)
+  const [categories, setCategories] = useState<Category[]>(["sound", "music"]);
+  // Input state for creating new category
+  const [newCategoryName, setNewCategoryName] = useState<string>("");
+
+  // Handler to add a new category and select it
+  const handleAddCategory = () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    if (!categories.includes(name)) {
+      setCategories((prev) => [...prev, name]);
+    }
+    setFormData((p) => ({ ...p, category: name }));
+    setNewCategoryName("");
+  };
 
   // keyboard & persistence
   useEffect(() => {
@@ -74,14 +90,17 @@ export default function SoundboardPage() {
           const idx = typeof parsed.currentBankIndex === "number" ? parsed.currentBankIndex : 0;
           setCurrentBankIndex(idx >= 0 && idx < parsed.banks.length ? idx : 0);
         }
+        if (parsed.categories && Array.isArray(parsed.categories)) {
+          setCategories(parsed.categories as Category[]);
+        }
       } catch {}
     }
   }, []);
   useEffect(() => {
     try {
-      localStorage.setItem("soundboardData", JSON.stringify({ banks, currentBankIndex }));
+      localStorage.setItem("soundboardData", JSON.stringify({ banks, currentBankIndex, categories }));
     } catch {}
-  }, [banks, currentBankIndex]);
+  }, [banks, currentBankIndex, categories]);
   useEffect(() => {
     if (showForm && fileInputRef.current) {
       fileInputRef.current.focus();
@@ -108,7 +127,8 @@ export default function SoundboardPage() {
     }
   };
   const stopAll = () => {
-    Object.values(playingAudio.current).forEach((e) => e.audio.pause());
+    // Pause any playing audio in all categories
+    Object.values(playingAudio.current).forEach((e) => e?.audio.pause());
     playingAudio.current = {};
   };
   const handleToggleLoop = (i: number) => {
@@ -241,10 +261,12 @@ export default function SoundboardPage() {
   const cancelBankModal = () => setBankModal(null);
   // Backup current boards and files to a JSON file
   const handleBackup = async () => {
+    // Prepare data to back up: banks, associated files, and custom categories
     const data: {
       banks: SoundBank[];
       files: Record<string, string>;
-    } = { banks, files: {} };
+      categories: Category[];
+    } = { banks, files: {}, categories };
     // gather unique fileIds
     const fileIds = Array.from(new Set(banks.flatMap((b) => b.sounds.map((s) => s.fileId))));
     for (const fid of fileIds) {
@@ -278,7 +300,12 @@ export default function SoundboardPage() {
     if (!file) return;
     try {
       const text = await file.text();
-      const parsed = JSON.parse(text) as { banks: SoundBank[]; files: Record<string, string> };
+      // Backup format: { banks, files: { [fileId]: dataUrl }, categories }
+      const parsed = JSON.parse(text) as {
+        banks: SoundBank[];
+        files: Record<string, string>;
+        categories?: Category[];
+      };
       // restore files to IndexedDB
       for (const [fid, dataUrl] of Object.entries(parsed.files)) {
         const [meta, base64] = dataUrl.split(",");
@@ -290,10 +317,17 @@ export default function SoundboardPage() {
         const blob = new Blob([arr], { type: mime });
         await saveFile(fid, blob);
       }
-      // restore banks metadata
+      // restore banks metadata and custom categories
       setBanks(parsed.banks);
       setCurrentBankIndex(0);
-      localStorage.setItem("soundboardData", JSON.stringify({ banks: parsed.banks, currentBankIndex: 0 }));
+      if (parsed.categories && Array.isArray(parsed.categories)) {
+        setCategories(parsed.categories);
+      }
+      // Persist restored state (banks, current index, categories)
+      localStorage.setItem(
+        "soundboardData",
+        JSON.stringify({ banks: parsed.banks, currentBankIndex: 0, categories: parsed.categories || categories }),
+      );
     } catch (err) {
       console.error(err);
       setRestoreError("Failed to restore backup. Invalid file.");
@@ -459,15 +493,36 @@ export default function SoundboardPage() {
                   />
                 </label>
               </div>
+              <div style={{ marginBottom: "0.5rem" }}>
+                <label style={{ marginRight: "0.5rem" }}>
+                  New Category:
+                  <input
+                    type="text"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="Add new..."
+                  />
+                </label>
+                <button type="button" onClick={handleAddCategory} disabled={!newCategoryName.trim()}>
+                  Add Category
+                </button>
+              </div>
               <div>
                 <label>
                   Category:
                   <select
-                    value={formData.category || "sound"}
-                    onChange={(e) => setFormData((p) => ({ ...p, category: e.target.value as Category }))}
+                    value={formData.category || ""}
+                    onChange={(e) => setFormData((p) => ({ ...p, category: e.target.value }))}
+                    required
                   >
-                    <option value="sound">sound</option>
-                    <option value="music">music</option>
+                    <option value="" disabled>
+                      Select category
+                    </option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
                   </select>
                 </label>
               </div>
