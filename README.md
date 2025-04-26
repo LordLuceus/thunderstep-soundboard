@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Thunderstep Soundboard
+
+> A browser-based soundboard application built with Next.js and React. Vibe-coded with [Codex](https://github.com/openai/codex).
+
+## Overview
+
+A browser-based soundboard application built with Next.js and React. Organize audio clips into banks, assign hotkeys, control playback volume and looping, and back up or restore your entire configuration.
+
+## Features
+
+- Multiple Sound Banks: group related sounds into named banks
+- Hotkey Assignment: bind a single key to each sound (scoped per bank)
+- Categories: "sound" and "music" types interrupt same-category playback
+- Volume Control: global and per-sound volume sliders
+- Loop Toggle: inline loop on/off for each sound
+- Keyboard Controls: play sounds or stop all via the Escape key
+- Accessible UI: ARIA labels and roles for screen readers
+- Persistence: metadata in localStorage; audio files stored in IndexedDB
+- Backup & Restore: export/import all banks and audio data as a JSON file
+
+## Tech Stack
+
+- Next.js 15 (App Router)
+- React 19 with Client Components
+- TypeScript
+- IndexedDB for binary file storage
+- ESLint & Prettier with husky + lint-staged pre-commit hooks
 
 ## Getting Started
 
-First, run the development server:
+1. Clone the repository:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+   ```bash
+   git clone https://github.com/lordluceus/thunderstep-soundboard.git
+   cd thunderstep-soundboard
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+   ```bash
+   npm install
+   # or
+   yarn install
+   # or
+   pnpm install
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. Initialize Husky hooks (runs automatically on install):
 
-## Learn More
+   ```bash
+   npm run prepare
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+4. Start the development server:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   ```bash
+   npm run dev
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Deploy on Vercel
+## Scripts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `npm run dev` – start Next.js in development mode
+- `npm run build` – build for production
+- `npm start` – run the production build
+- `npm run lint` – run ESLint
+- `npm run prepare` – install Git hooks via Husky
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Backup & Restore
+
+- **Backup**: Click the **Backup** button to download `soundboard-backup.json`, containing all banks and audio data.
+- **Restore**: Click **Restore** and select a valid backup JSON to repopulate your soundboard.
+
+## Contributing
+
+1. Fork the repository and create your feature branch.
+2. Ensure code is formatted via Prettier and passes ESLint.
+3. Commit your changes; the pre-commit hook will auto-run lint-staged.
+4. Open a Pull Request.
+
+---
+
+Enjoy building your personalized soundboard! Feel free to open issues or pull requests for improvements. 🚀
