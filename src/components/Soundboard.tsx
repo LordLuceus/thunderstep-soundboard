@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { deleteFile, getFile, saveFile } from "../lib/db";
+import { deleteFile, getFile, saveFile } from "@/lib/db";
+import { useEffect, useRef, useState } from "react";
 
 type Category = "sound" | "music";
 
