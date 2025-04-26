@@ -30,8 +30,9 @@ export default function SoundboardPage() {
   const [showForm, setShowForm] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [formData, setFormData] = useState<Partial<Sound>>({});
+  const [formError, setFormError] = useState<string | null>(null);
   // preview URL for the selected file (before saving to IndexedDB)
-  const [, setFilePreviewUrl] = useState<string | null>(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Bank add/remove modals
   const [bankModal, setBankModal] = useState<"add" | "remove" | null>(null);
@@ -135,11 +136,14 @@ export default function SoundboardPage() {
     if (entry && entry.soundId === id) entry.audio.volume = (vol / 100) * (globalVolume / 100);
   };
   const openForm = (sound?: Sound, i?: number) => {
+    // reset form error when opening
+    setFormError(null);
     if (sound) {
       setFormData(sound);
       setEditIndex(i!);
     } else {
       setFormData({ category: "sound" });
+      setEditIndex(null);
     }
     setFilePreviewUrl(null);
     setShowForm(true);
@@ -148,10 +152,28 @@ export default function SoundboardPage() {
     setShowForm(false);
     setFormData({});
     setEditIndex(null);
+    setFormError(null);
   };
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.fileId || !formData.hotkey || !formData.category) return;
+    // Clear previous error
+    setFormError(null);
+    // Validate required fields
+    if (!formData.name || !formData.fileId || !formData.hotkey || !formData.category) {
+      setFormError("Please fill in all required fields.");
+      return;
+    }
+    // Ensure hotkey uniqueness within the current bank
+    const newKey = (formData.hotkey as string).trim().toLowerCase();
+    const existing = banks[currentBankIndex].sounds;
+    const isDuplicate = existing.some((s, idx) => {
+      if (editIndex != null && idx === editIndex) return false;
+      return s.hotkey.trim().toLowerCase() === newKey;
+    });
+    if (isDuplicate) {
+      setFormError(`Hotkey '${formData.hotkey}' is already used in this bank.`);
+      return;
+    }
     const newSound: Sound = {
       id: editIndex != null ? banks[currentBankIndex].sounds[editIndex].id : Date.now().toString(),
       name: formData.name as string,
@@ -310,6 +332,11 @@ export default function SoundboardPage() {
           >
             <form onSubmit={handleFormSubmit} style={{ background: "#fff", padding: "1rem", borderRadius: "4px" }}>
               <h2>{editIndex != null ? "Edit Sound" : "Add Sound"}</h2>
+              {formError && (
+                <div style={{ color: "red", marginBottom: "0.5rem" }} role="alert">
+                  {formError}
+                </div>
+              )}
               <div>
                 <label>
                   File:
@@ -322,6 +349,11 @@ export default function SoundboardPage() {
                   />
                 </label>
               </div>
+              {filePreviewUrl && (
+                <div style={{ marginTop: "0.5rem" }}>
+                  <audio controls src={filePreviewUrl} style={{ width: "100%" }} />
+                </div>
+              )}
               <div>
                 <label>
                   Name:
