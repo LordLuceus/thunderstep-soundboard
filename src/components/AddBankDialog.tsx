@@ -1,7 +1,5 @@
 "use client";
 
-import React from "react";
-
 interface AddBankDialogProps {
   bankNameInput: string;
   setBankNameInput: React.Dispatch<React.SetStateAction<string>>;

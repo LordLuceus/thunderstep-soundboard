@@ -1,60 +1,34 @@
 "use client";
 
 import { deleteFile, getFile, saveFile } from "@/lib/db";
-import { useEffect, useRef, useState } from "react";
-import AddEditSoundDialog from "./AddEditSoundDialog";
+import { Sound, SoundBank } from "@/lib/types";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AddBankDialog from "./AddBankDialog";
+import AddEditSoundDialog from "./AddEditSoundDialog";
 import RemoveBankDialog from "./RemoveBankDialog";
 import RemoveSoundDialog from "./RemoveSoundDialog";
-
-// Allow arbitrary categories (default categories were "sound" and "music")
-type Category = string;
-
-interface Sound {
-  id: string;
-  name: string;
-  // fileId references a Blob stored in IndexedDB
-  fileId: string;
-  hotkey: string;
-  category: Category;
-  volume: number;
-  loop: boolean;
-}
-
-interface SoundBank {
-  name: string;
-  sounds: Sound[];
-}
 
 export default function SoundboardPage() {
   const [banks, setBanks] = useState<SoundBank[]>([{ name: "Default", sounds: [] }]);
   const [currentBankIndex, setCurrentBankIndex] = useState(0);
   const [globalVolume, setGlobalVolume] = useState(100);
-  const playingAudio = useRef<Partial<Record<Category, { audio: HTMLAudioElement; soundId: string }>>>({});
+  const playingAudio = useRef<Partial<Record<string, { audio: HTMLAudioElement; soundId: string }>>>({});
 
   const [showForm, setShowForm] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [formData, setFormData] = useState<Partial<Sound>>({});
   const [formError, setFormError] = useState<string | null>(null);
-  // preview URL for the selected file (before saving to IndexedDB)
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
-  // Backup & restore
   const restoreInputRef = useRef<HTMLInputElement>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // Bank add/remove modals
   const [bankModal, setBankModal] = useState<"add" | "remove" | null>(null);
   const [bankNameInput, setBankNameInput] = useState("");
-  // Sound delete confirmation
   const [soundToDelete, setSoundToDelete] = useState<number | null>(null);
-  // Available categories (default + custom)
-  const [categories, setCategories] = useState<Category[]>(["sound", "music"]);
-  // Input state for creating new category
+  const [categories, setCategories] = useState<string[]>(["sound", "music"]);
   const [newCategoryName, setNewCategoryName] = useState<string>("");
-  // Ref to the category select element for focus management
   const categorySelectRef = useRef<HTMLSelectElement>(null);
 
-  // Handler to add a new category and select it
   const handleAddCategory = () => {
     const name = newCategoryName.trim();
     if (!name) return;
@@ -69,7 +43,29 @@ export default function SoundboardPage() {
     }, 0);
   };
 
-  // keyboard & persistence
+  const playSound = useCallback(
+    async (sound: Sound) => {
+      const { category, fileId } = sound;
+      const prev = playingAudio.current[category];
+      if (prev) {
+        prev.audio.pause();
+        delete playingAudio.current[category];
+      }
+      try {
+        const blob = await getFile(fileId);
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.loop = sound.loop;
+        audio.volume = (sound.volume / 100) * (globalVolume / 100);
+        playingAudio.current[category] = { audio, soundId: sound.id };
+        audio.play();
+      } catch (err) {
+        console.error("Error fetching audio from IndexedDB", err);
+      }
+    },
+    [globalVolume],
+  );
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -88,8 +84,8 @@ export default function SoundboardPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [banks, currentBankIndex, globalVolume]);
+  }, [banks, currentBankIndex, globalVolume, playSound]);
+
   useEffect(() => {
     const saved = localStorage.getItem("soundboardData");
     if (saved) {
@@ -101,46 +97,30 @@ export default function SoundboardPage() {
           setCurrentBankIndex(idx >= 0 && idx < parsed.banks.length ? idx : 0);
         }
         if (parsed.categories && Array.isArray(parsed.categories)) {
-          setCategories(parsed.categories as Category[]);
+          setCategories(parsed.categories as string[]);
         }
       } catch {}
     }
   }, []);
+
   useEffect(() => {
     try {
       localStorage.setItem("soundboardData", JSON.stringify({ banks, currentBankIndex, categories }));
     } catch {}
   }, [banks, currentBankIndex, categories]);
+
   useEffect(() => {
     if (showForm && fileInputRef.current) {
       fileInputRef.current.focus();
     }
   }, [showForm]);
 
-  const playSound = async (sound: Sound) => {
-    const { category, fileId } = sound;
-    const prev = playingAudio.current[category];
-    if (prev) {
-      prev.audio.pause();
-      delete playingAudio.current[category];
-    }
-    try {
-      const blob = await getFile(fileId);
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audio.loop = sound.loop;
-      audio.volume = (sound.volume / 100) * (globalVolume / 100);
-      playingAudio.current[category] = { audio, soundId: sound.id };
-      audio.play();
-    } catch (err) {
-      console.error("Error fetching audio from IndexedDB", err);
-    }
-  };
   const stopAll = () => {
     // Pause any playing audio in all categories
     Object.values(playingAudio.current).forEach((e) => e?.audio.pause());
     playingAudio.current = {};
   };
+
   const handleToggleLoop = (i: number) => {
     const snd = banks[currentBankIndex].sounds[i];
     const newLoop = !snd.loop;
@@ -154,6 +134,7 @@ export default function SoundboardPage() {
     const entry = playingAudio.current[snd.category];
     if (entry && entry.soundId === snd.id) entry.audio.loop = newLoop;
   };
+
   const handleChangeVolume = (i: number, vol: number) => {
     const snd = banks[currentBankIndex].sounds[i];
     const cat = snd.category;
@@ -168,6 +149,7 @@ export default function SoundboardPage() {
     const entry = playingAudio.current[cat];
     if (entry && entry.soundId === id) entry.audio.volume = (vol / 100) * (globalVolume / 100);
   };
+
   const openForm = (sound?: Sound, i?: number) => {
     // reset form error when opening
     setFormError(null);
@@ -212,7 +194,7 @@ export default function SoundboardPage() {
       name: formData.name as string,
       fileId: formData.fileId as string,
       hotkey: (formData.hotkey as string).toLowerCase(),
-      category: formData.category as Category,
+      category: formData.category,
       volume: formData.volume ?? 100,
       loop: formData.loop ?? false,
     };
@@ -226,6 +208,7 @@ export default function SoundboardPage() {
     });
     closeForm();
   };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -238,6 +221,7 @@ export default function SoundboardPage() {
       console.error(err);
     }
   };
+
   const removeSound = (i: number) => {
     const snd = banks[currentBankIndex].sounds[i];
     setBanks((prev) => {
@@ -249,13 +233,16 @@ export default function SoundboardPage() {
     });
     deleteFile(snd.fileId).catch(console.error);
   };
+
   const addBank = () => {
     setBankNameInput("");
     setBankModal("add");
   };
+
   const removeBank = () => {
     if (banks.length > 1) setBankModal("remove");
   };
+
   const handleAddBankConfirm = (e: React.FormEvent) => {
     e.preventDefault();
     if (!bankNameInput.trim()) return;
@@ -263,19 +250,21 @@ export default function SoundboardPage() {
     setCurrentBankIndex(banks.length);
     setBankModal(null);
   };
+
   const handleRemoveBankConfirm = () => {
     setBanks((prev) => prev.filter((_, i) => i !== currentBankIndex));
     setCurrentBankIndex(0);
     setBankModal(null);
   };
+
   const cancelBankModal = () => setBankModal(null);
-  // Backup current boards and files to a JSON file
+
   const handleBackup = async () => {
     // Prepare data to back up: banks, associated files, and custom categories
     const data: {
       banks: SoundBank[];
       files: Record<string, string>;
-      categories: Category[];
+      categories: string[];
     } = { banks, files: {}, categories };
     // gather unique fileIds
     const fileIds = Array.from(new Set(banks.flatMap((b) => b.sounds.map((s) => s.fileId))));
@@ -314,7 +303,7 @@ export default function SoundboardPage() {
       const parsed = JSON.parse(text) as {
         banks: SoundBank[];
         files: Record<string, string>;
-        categories?: Category[];
+        categories?: string[];
       };
       // restore files to IndexedDB
       for (const [fid, dataUrl] of Object.entries(parsed.files)) {

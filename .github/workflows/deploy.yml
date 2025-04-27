@@ -21,7 +21,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            cd ~/app
+            cd ~/thunderstep-soundboard
             git pull origin master
-            docker-compose up -d --build
-            docker image prune -f
+            sudo systemctl restart thunderstep-soundboard

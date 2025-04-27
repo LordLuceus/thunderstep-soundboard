@@ -1,17 +1,6 @@
 "use client";
 
-import React from "react";
-
-export type Category = string;
-export interface Sound {
-  id: string;
-  name: string;
-  fileId: string;
-  hotkey: string;
-  category: Category;
-  volume: number;
-  loop: boolean;
-}
+import { Sound } from "@/lib/types";
 
 interface AddEditSoundDialogProps {
   editIndex: number | null;
@@ -19,7 +8,7 @@ interface AddEditSoundDialogProps {
   formError: string | null;
   filePreviewUrl: string | null;
   newCategoryName: string;
-  categories: Category[];
+  categories: string[];
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   categorySelectRef: React.RefObject<HTMLSelectElement | null>;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;

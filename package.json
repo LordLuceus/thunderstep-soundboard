@@ -2,6 +2,16 @@
   "name": "thunderstep-soundboard",
   "version": "0.1.0",
   "private": true,
+  "author": {
+    "email": "lord.luceus@gmail.com",
+    "name": "LordLuceus",
+    "url": "https://github.com/LordLuceus"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LordLuceus/thunderstep-soundboard"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
