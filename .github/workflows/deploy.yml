@@ -17,6 +17,7 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.PROD_HOST }}
+          port: ${{ secrets.PROD_PORT }}
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
@@ -24,3 +25,4 @@ jobs:
             cd ~/thunderstep-soundboard
             git pull origin master
             sudo systemctl restart thunderstep-soundboard
+            docker image prune -f
