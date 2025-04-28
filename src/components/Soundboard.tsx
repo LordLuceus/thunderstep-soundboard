@@ -1,8 +1,13 @@
 "use client";
 
-import { deleteFile, getFile, saveFile } from "@/lib/db";
+import { deleteFile, saveFile } from "@/lib/db";
+import { useSoundPlayback } from "@/hooks/useSoundPlayback";
+import BankList from "./BankList";
+import SoundTable from "./SoundTable";
+import GlobalControls from "./GlobalControls";
+import BackupRestore from "./BackupRestore";
 import { Sound, SoundBank } from "@/lib/types";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AddBankDialog from "./AddBankDialog";
 import AddEditSoundDialog from "./AddEditSoundDialog";
 import RemoveBankDialog from "./RemoveBankDialog";
@@ -12,15 +17,13 @@ export default function SoundboardPage() {
   const [banks, setBanks] = useState<SoundBank[]>([{ name: "Default", sounds: [] }]);
   const [currentBankIndex, setCurrentBankIndex] = useState(0);
   const [globalVolume, setGlobalVolume] = useState(100);
-  const playingAudio = useRef<Partial<Record<string, { audio: HTMLAudioElement; soundId: string }>>>({});
+  const { playSound, stopAll, changeVolume: changePlaybackVolume, toggleLoop } = useSoundPlayback(globalVolume);
 
   const [showForm, setShowForm] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [formData, setFormData] = useState<Partial<Sound>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
-  const restoreInputRef = useRef<HTMLInputElement>(null);
-  const [restoreError, setRestoreError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [bankModal, setBankModal] = useState<"add" | "remove" | null>(null);
   const [bankNameInput, setBankNameInput] = useState("");
@@ -43,29 +46,6 @@ export default function SoundboardPage() {
     }, 0);
   };
 
-  const playSound = useCallback(
-    async (sound: Sound) => {
-      const { category, fileId } = sound;
-      const prev = playingAudio.current[category];
-      if (prev) {
-        prev.audio.pause();
-        delete playingAudio.current[category];
-      }
-      try {
-        const blob = await getFile(fileId);
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audio.loop = sound.loop;
-        audio.volume = (sound.volume / 100) * (globalVolume / 100);
-        playingAudio.current[category] = { audio, soundId: sound.id };
-        audio.play();
-      } catch (err) {
-        console.error("Error fetching audio from IndexedDB", err);
-      }
-    },
-    [globalVolume],
-  );
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -84,7 +64,7 @@ export default function SoundboardPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [banks, currentBankIndex, globalVolume, playSound]);
+  }, [banks, currentBankIndex, playSound]);
 
   useEffect(() => {
     const saved = localStorage.getItem("soundboardData");
@@ -115,12 +95,6 @@ export default function SoundboardPage() {
     }
   }, [showForm]);
 
-  const stopAll = () => {
-    // Pause any playing audio in all categories
-    Object.values(playingAudio.current).forEach((e) => e?.audio.pause());
-    playingAudio.current = {};
-  };
-
   const handleToggleLoop = (i: number) => {
     const snd = banks[currentBankIndex].sounds[i];
     const newLoop = !snd.loop;
@@ -131,14 +105,11 @@ export default function SoundboardPage() {
       nb[currentBankIndex] = { ...nb[currentBankIndex], sounds: ss };
       return nb;
     });
-    const entry = playingAudio.current[snd.category];
-    if (entry && entry.soundId === snd.id) entry.audio.loop = newLoop;
+    toggleLoop({ ...snd, loop: newLoop });
   };
 
   const handleChangeVolume = (i: number, vol: number) => {
     const snd = banks[currentBankIndex].sounds[i];
-    const cat = snd.category;
-    const id = snd.id;
     setBanks((prev) => {
       const nb = [...prev];
       const ss = [...nb[currentBankIndex].sounds];
@@ -146,8 +117,7 @@ export default function SoundboardPage() {
       nb[currentBankIndex] = { ...nb[currentBankIndex], sounds: ss };
       return nb;
     });
-    const entry = playingAudio.current[cat];
-    if (entry && entry.soundId === id) entry.audio.volume = (vol / 100) * (globalVolume / 100);
+    changePlaybackVolume(snd, vol);
   };
 
   const openForm = (sound?: Sound, i?: number) => {
@@ -259,177 +229,34 @@ export default function SoundboardPage() {
 
   const cancelBankModal = () => setBankModal(null);
 
-  const handleBackup = async () => {
-    // Prepare data to back up: banks, associated files, and custom categories
-    const data: {
-      banks: SoundBank[];
-      files: Record<string, string>;
-      categories: string[];
-    } = { banks, files: {}, categories };
-    // gather unique fileIds
-    const fileIds = Array.from(new Set(banks.flatMap((b) => b.sounds.map((s) => s.fileId))));
-    for (const fid of fileIds) {
-      try {
-        const blob = await getFile(fid);
-        const reader = new FileReader();
-        const url = await new Promise<string>((res, rej) => {
-          reader.onload = () => res(reader.result as string);
-          reader.onerror = () => rej(reader.error);
-          reader.readAsDataURL(blob);
-        });
-        data.files[fid] = url;
-      } catch (err) {
-        console.error("Backup: failed to read file", fid, err);
-      }
-    }
-    const json = JSON.stringify(data);
-    const blob = new Blob([json], { type: "application/json" });
-    const dlUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = dlUrl;
-    a.download = "soundboard-backup.json";
-    a.click();
-    URL.revokeObjectURL(dlUrl);
-  };
-
-  // Restore from a backup JSON file
-  const handleRestoreFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    setRestoreError(null);
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const text = await file.text();
-      // Backup format: { banks, files: { [fileId]: dataUrl }, categories }
-      const parsed = JSON.parse(text) as {
-        banks: SoundBank[];
-        files: Record<string, string>;
-        categories?: string[];
-      };
-      // restore files to IndexedDB
-      for (const [fid, dataUrl] of Object.entries(parsed.files)) {
-        const [meta, base64] = dataUrl.split(",");
-        const mime = meta.split(":")[1].split(";")[0];
-        const binary = atob(base64);
-        const len = binary.length;
-        const arr = new Uint8Array(len);
-        for (let i = 0; i < len; i++) arr[i] = binary.charCodeAt(i);
-        const blob = new Blob([arr], { type: mime });
-        await saveFile(fid, blob);
-      }
-      // restore banks metadata and custom categories
-      setBanks(parsed.banks);
-      setCurrentBankIndex(0);
-      if (parsed.categories && Array.isArray(parsed.categories)) {
-        setCategories(parsed.categories);
-      }
-      // Persist restored state (banks, current index, categories)
-      localStorage.setItem(
-        "soundboardData",
-        JSON.stringify({ banks: parsed.banks, currentBankIndex: 0, categories: parsed.categories || categories }),
-      );
-    } catch (err) {
-      console.error(err);
-      setRestoreError("Failed to restore backup. Invalid file.");
-    } finally {
-      if (restoreInputRef.current) restoreInputRef.current.value = "";
-    }
-  };
-
   return (
     <div style={{ display: "flex", padding: "1rem" }}>
-      <aside aria-label="Sound Banks" style={{ marginRight: "1rem", minWidth: "150px" }}>
-        <h2>Sound Banks</h2>
-        <ul>
-          {banks.map((b, i) => (
-            <li key={i}>
-              <button onClick={() => setCurrentBankIndex(i)} aria-pressed={currentBankIndex === i}>
-                {b.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-        <button onClick={addBank}>Add Bank</button>
-        <button onClick={removeBank} disabled={banks.length < 2}>
-          Remove Bank
-        </button>
-      </aside>
+      <BankList
+        banks={banks}
+        currentBankIndex={currentBankIndex}
+        onSelect={setCurrentBankIndex}
+        onAdd={addBank}
+        onRemove={removeBank}
+      />
       <main style={{ flex: 1 }}>
         <h2>Bank: {banks[currentBankIndex].name}</h2>
         <button onClick={() => openForm()}>Add Sound</button>
-        <table aria-label="Sounds Table" style={{ width: "100%", marginTop: "1rem", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Hotkey</th>
-              <th>Category</th>
-              <th>Volume</th>
-              <th>Loop</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {banks[currentBankIndex].sounds.map((sound, idx) => (
-              <tr key={sound.id} style={{ borderBottom: "1px solid #ccc" }}>
-                <td>{sound.name}</td>
-                <td>{sound.hotkey}</td>
-                <td>{sound.category}</td>
-                <td>
-                  <input
-                    aria-label={`Volume for ${sound.name}`}
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={sound.volume}
-                    onChange={(e) => handleChangeVolume(idx, Number(e.target.value))}
-                  />{" "}
-                  <span style={{ marginLeft: "0.5rem" }}>{sound.volume}</span>
-                </td>
-                <td>
-                  <input
-                    aria-label={`Loop for ${sound.name}`}
-                    type="checkbox"
-                    checked={sound.loop}
-                    onChange={() => handleToggleLoop(idx)}
-                  />
-                </td>
-                <td>
-                  <button onClick={() => openForm(sound, idx)}>Edit</button>
-                  <button onClick={() => setSoundToDelete(idx)}>Remove</button>
-                  <button onClick={() => playSound(sound)}>Play</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div style={{ marginTop: "1rem" }}>
-          <label htmlFor="globalVolume">Global Volume: {globalVolume}</label>
-          <input
-            id="globalVolume"
-            type="range"
-            min="0"
-            max="100"
-            value={globalVolume}
-            onChange={(e) => setGlobalVolume(Number(e.target.value))}
-          />
-        </div>
-        <div style={{ marginTop: "1rem" }}>
-          <button onClick={handleBackup}>Backup</button>
-          <button onClick={() => restoreInputRef.current?.click()} style={{ marginLeft: "0.5rem" }}>
-            Restore
-          </button>
-          <input
-            type="file"
-            accept="application/json"
-            style={{ display: "none" }}
-            ref={restoreInputRef}
-            onChange={handleRestoreFile}
-          />
-          {restoreError && (
-            <div style={{ color: "red", marginTop: "0.5rem" }} role="alert">
-              {restoreError}
-            </div>
-          )}
-        </div>
+        <SoundTable
+          sounds={banks[currentBankIndex].sounds}
+          onPlay={playSound}
+          onEdit={openForm}
+          onRemove={setSoundToDelete}
+          onVolumeChange={handleChangeVolume}
+          onToggleLoop={handleToggleLoop}
+        />
+        <GlobalControls globalVolume={globalVolume} setGlobalVolume={setGlobalVolume} onStopAll={stopAll} />
+        <BackupRestore
+          banks={banks}
+          categories={categories}
+          setBanks={setBanks}
+          setCategories={setCategories}
+          setCurrentBankIndex={setCurrentBankIndex}
+        />
         {showForm && (
           <AddEditSoundDialog
             editIndex={editIndex}
