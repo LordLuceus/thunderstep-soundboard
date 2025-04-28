@@ -1,14 +1,23 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { getFile } from "@/lib/db";
 import { Sound } from "@/lib/types";
 
 interface PlayingAudioEntry {
   audio: HTMLAudioElement;
   soundId: string;
+  volume: number;
 }
 
 export function useSoundPlayback(globalVolume: number) {
   const playingAudio = useRef<Partial<Record<string, PlayingAudioEntry>>>({});
+  // Adjust volumes when globalVolume changes
+  useEffect(() => {
+    Object.values(playingAudio.current).forEach((entry) => {
+      if (entry) {
+        entry.audio.volume = (entry.volume / 100) * (globalVolume / 100);
+      }
+    });
+  }, [globalVolume]);
 
   const playSound = useCallback(
     async (sound: Sound) => {
@@ -24,7 +33,7 @@ export function useSoundPlayback(globalVolume: number) {
         const audio = new Audio(url);
         audio.loop = sound.loop;
         audio.volume = (sound.volume / 100) * (globalVolume / 100);
-        playingAudio.current[category] = { audio, soundId: sound.id };
+        playingAudio.current[category] = { audio, soundId: sound.id, volume: sound.volume };
         audio.play();
       } catch (err) {
         console.error("Error fetching audio from IndexedDB", err);
@@ -42,6 +51,7 @@ export function useSoundPlayback(globalVolume: number) {
     (sound: Sound, volume: number) => {
       const entry = playingAudio.current[sound.category];
       if (entry && entry.soundId === sound.id) {
+        entry.volume = volume;
         entry.audio.volume = (volume / 100) * (globalVolume / 100);
       }
     },
