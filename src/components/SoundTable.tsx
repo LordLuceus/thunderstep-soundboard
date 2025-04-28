@@ -9,6 +9,7 @@ interface SoundTableProps {
   onRemove: (index: number) => void;
   onVolumeChange: (index: number, volume: number) => void;
   onToggleLoop: (index: number) => void;
+  onStop: (sound: Sound) => void;
 }
 
 export default function SoundTable({
@@ -18,6 +19,7 @@ export default function SoundTable({
   onRemove,
   onVolumeChange,
   onToggleLoop,
+  onStop,
 }: SoundTableProps) {
   return (
     <table aria-label="Sounds Table" style={{ width: "100%", marginTop: "1rem", borderCollapse: "collapse" }}>
@@ -41,6 +43,7 @@ export default function SoundTable({
             onRemove={() => onRemove(idx)}
             onVolumeChange={(vol) => onVolumeChange(idx, vol)}
             onToggleLoop={() => onToggleLoop(idx)}
+            onStop={() => onStop(sound)}
           />
         ))}
       </tbody>

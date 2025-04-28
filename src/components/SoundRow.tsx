@@ -8,9 +8,18 @@ interface SoundRowProps {
   onRemove: () => void;
   onVolumeChange: (volume: number) => void;
   onToggleLoop: () => void;
+  onStop: () => void;
 }
 
-export default function SoundRow({ sound, onPlay, onEdit, onRemove, onVolumeChange, onToggleLoop }: SoundRowProps) {
+export default function SoundRow({
+  sound,
+  onPlay,
+  onEdit,
+  onRemove,
+  onVolumeChange,
+  onToggleLoop,
+  onStop,
+}: SoundRowProps) {
   return (
     <tr style={{ borderBottom: "1px solid #ccc" }}>
       <td>{sound.name}</td>
@@ -34,6 +43,7 @@ export default function SoundRow({ sound, onPlay, onEdit, onRemove, onVolumeChan
         <button onClick={onEdit}>Edit</button>
         <button onClick={onRemove}>Remove</button>
         <button onClick={onPlay}>Play</button>
+        <button onClick={onStop}>Stop</button>
       </td>
     </tr>
   );

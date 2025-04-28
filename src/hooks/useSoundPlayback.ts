@@ -65,5 +65,13 @@ export function useSoundPlayback(globalVolume: number) {
     }
   }, []);
 
-  return { playSound, stopAll, changeVolume, toggleLoop };
+  const stopSound = useCallback((sound: Sound) => {
+    const entry = playingAudio.current[sound.category];
+    if (entry && entry.soundId === sound.id) {
+      entry.audio.pause();
+      delete playingAudio.current[sound.category];
+    }
+  }, []);
+
+  return { playSound, stopAll, changeVolume, toggleLoop, stopSound };
 }

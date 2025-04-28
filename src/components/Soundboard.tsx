@@ -17,7 +17,13 @@ export default function SoundboardPage() {
   const [banks, setBanks] = useState<SoundBank[]>([{ name: "Default", sounds: [] }]);
   const [currentBankIndex, setCurrentBankIndex] = useState(0);
   const [globalVolume, setGlobalVolume] = useState(100);
-  const { playSound, stopAll, changeVolume: changePlaybackVolume, toggleLoop } = useSoundPlayback(globalVolume);
+  const {
+    playSound,
+    stopAll,
+    changeVolume: changePlaybackVolume,
+    toggleLoop,
+    stopSound,
+  } = useSoundPlayback(globalVolume);
 
   const [showForm, setShowForm] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
@@ -248,6 +254,7 @@ export default function SoundboardPage() {
           onRemove={setSoundToDelete}
           onVolumeChange={handleChangeVolume}
           onToggleLoop={handleToggleLoop}
+          onStop={stopSound}
         />
         <GlobalControls globalVolume={globalVolume} setGlobalVolume={setGlobalVolume} onStopAll={stopAll} />
         <BackupRestore
