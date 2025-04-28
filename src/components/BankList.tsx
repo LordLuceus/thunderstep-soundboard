@@ -1,4 +1,3 @@
-import React from "react";
 import { SoundBank } from "@/lib/types";
 
 interface BankListProps {

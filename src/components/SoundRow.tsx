@@ -1,4 +1,3 @@
-import React from "react";
 import { Sound } from "@/lib/types";
 
 interface SoundRowProps {

@@ -1,5 +1,3 @@
-import React from "react";
-
 interface GlobalControlsProps {
   globalVolume: number;
   setGlobalVolume: (volume: number) => void;

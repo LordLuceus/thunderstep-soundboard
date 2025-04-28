@@ -1,6 +1,6 @@
-import React, { useRef, useState } from "react";
-import { SoundBank } from "@/lib/types";
 import { getFile, saveFile } from "@/lib/db";
+import { SoundBank } from "@/lib/types";
+import { useRef, useState } from "react";
 
 interface BackupRestoreProps {
   banks: SoundBank[];

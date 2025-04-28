@@ -1,17 +1,17 @@
 "use client";
 
-import { deleteFile, saveFile } from "@/lib/db";
 import { useSoundPlayback } from "@/hooks/useSoundPlayback";
-import BankList from "./BankList";
-import SoundTable from "./SoundTable";
-import GlobalControls from "./GlobalControls";
-import BackupRestore from "./BackupRestore";
+import { deleteFile, saveFile } from "@/lib/db";
 import { Sound, SoundBank } from "@/lib/types";
 import { useEffect, useRef, useState } from "react";
 import AddBankDialog from "./AddBankDialog";
 import AddEditSoundDialog from "./AddEditSoundDialog";
+import BackupRestore from "./BackupRestore";
+import BankList from "./BankList";
+import GlobalControls from "./GlobalControls";
 import RemoveBankDialog from "./RemoveBankDialog";
 import RemoveSoundDialog from "./RemoveSoundDialog";
+import SoundTable from "./SoundTable";
 
 export default function SoundboardPage() {
   const [banks, setBanks] = useState<SoundBank[]>([{ name: "Default", sounds: [] }]);
@@ -74,7 +74,7 @@ export default function SoundboardPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [banks, currentBankIndex, playSound, stopSound]);
+  }, [banks, currentBankIndex, playSound, stopAll, stopSound]);
 
   useEffect(() => {
     const saved = localStorage.getItem("soundboardData");
