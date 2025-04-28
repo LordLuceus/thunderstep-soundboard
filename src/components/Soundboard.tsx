@@ -65,12 +65,16 @@ export default function SoundboardPage() {
       const sound = banks[currentBankIndex].sounds.find((s) => s.hotkey.toLowerCase() === key);
       if (sound) {
         e.preventDefault();
-        playSound(sound);
+        if (e.shiftKey) {
+          stopSound(sound);
+        } else {
+          playSound(sound);
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [banks, currentBankIndex, playSound]);
+  }, [banks, currentBankIndex, playSound, stopSound]);
 
   useEffect(() => {
     const saved = localStorage.getItem("soundboardData");
