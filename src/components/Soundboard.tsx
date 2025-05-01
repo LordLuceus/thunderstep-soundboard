@@ -83,9 +83,24 @@ export default function SoundboardPage() {
         }
         return;
       }
-      // Play or stop sound by hotkey
-      const key = e.key.toLowerCase();
-      const sound = banks[currentBankIndex].sounds.find((s) => s.hotkey.toLowerCase() === key);
+      // Play or stop sound by hotkey, using physical key codes for letters/digits to ignore Shift impact
+      let keyChar: string;
+      const code = e.code || "";
+      if (code.startsWith("Key")) {
+        // Letter key (e.g., 'KeyA')
+        keyChar = code.slice(3).toLowerCase();
+      } else if (code.startsWith("Digit")) {
+        // Number row key (e.g., 'Digit1')
+        keyChar = code.slice(5);
+      } else if (code.startsWith("Numpad")) {
+        // Numpad keys (e.g., 'Numpad1')
+        const num = code.slice(6);
+        keyChar = /^[0-9]$/.test(num) ? num : e.key.toLowerCase();
+      } else {
+        // Fallback for other keys (punctuation, etc.)
+        keyChar = e.key.toLowerCase();
+      }
+      const sound = banks[currentBankIndex].sounds.find((s) => s.hotkey.toLowerCase() === keyChar);
       if (sound) {
         e.preventDefault();
         if (e.shiftKey) {
