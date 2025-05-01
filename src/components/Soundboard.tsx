@@ -52,15 +52,38 @@ export default function SoundboardPage() {
     }, 0);
   };
 
+  // Handle global key shortcuts: Escape to stop all, arrow keys to switch banks, and hotkeys to play/stop sounds
+  const [ariaMessage, setAriaMessage] = useState<string>("");
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Always allow Escape to stop all sounds
       if (e.key === "Escape") {
         e.preventDefault();
         stopAll();
         return;
       }
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
+      const target = e.target as HTMLElement;
+      const tag = target.tagName;
+      // Ignore when typing in inputs/textareas or editable elements
+      if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
+      // Switch banks with left/right arrows
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        // wrap-around bank switch
+        let newIndex = currentBankIndex;
+        if (e.key === "ArrowLeft") {
+          newIndex = currentBankIndex > 0 ? currentBankIndex - 1 : banks.length - 1;
+        } else if (e.key === "ArrowRight") {
+          newIndex = currentBankIndex < banks.length - 1 ? currentBankIndex + 1 : 0;
+        }
+        if (newIndex !== currentBankIndex) {
+          setCurrentBankIndex(newIndex);
+          const name = banks[newIndex]?.name || "";
+          setAriaMessage(`Switched to bank '${name}'`);
+        }
+        return;
+      }
+      // Play or stop sound by hotkey
       const key = e.key.toLowerCase();
       const sound = banks[currentBankIndex].sounds.find((s) => s.hotkey.toLowerCase() === key);
       if (sound) {
@@ -241,6 +264,20 @@ export default function SoundboardPage() {
 
   return (
     <div style={{ display: "flex", padding: "1rem" }}>
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          top: "auto",
+          width: "1px",
+          height: "1px",
+          overflow: "hidden",
+        }}
+      >
+        {ariaMessage}
+      </div>
       <BankList
         banks={banks}
         currentBankIndex={currentBankIndex}
